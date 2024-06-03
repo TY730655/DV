@@ -1,0 +1,1216 @@
+<!--M124020013 賴亭涵-->
+<!--M124020017 楊筑鈞-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+
+    <style>
+        #ageFilter {
+            margin-top: 10px;
+        }
+
+        .chart-container {
+            display: flex;
+        }
+
+        .time-container {
+            display: flex;
+        }
+
+        .chart {
+            flex: 1;
+            width: 700px;
+        }
+
+        #my_dataviz {
+            margin-left: -230px;
+        }
+
+        .topbar {
+            display: flex;
+            height: 55px;
+            width: 100%;
+            background-color: #0C2C44;
+        }
+
+        .sysname {
+            color: white;
+            font-size: 35px;
+            margin-left: 15px;
+            margin-top: 2px;
+        }
+
+        .detail {
+            width: 90px;
+            height: 310px;
+            margin-top: 45px;
+            margin-right: 30px;
+            margin-left: -30px;
+            
+        }
+
+        #SunburstChart {
+            margin-left: 20px;
+            margin-top: -20px;
+        }
+
+        .sun-detail {
+            width: 700px;
+            height: 20px;
+
+        }
+
+        .logo {
+            height: 40px;
+            margin-left: 15px;
+            margin-top: 7px;
+
+        }
+
+        .scroll-container {
+            width: 860px;
+            height: 350px;
+            overflow-x: scroll;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            margin-left: -200px;
+
+        }
+
+        .checkbox-container {
+
+            display: flex;
+            flex-direction: column; /* Set the sort direction to vertical */
+            margin-left: 40px;     /* Spacing can be adjusted as needed */
+            margin-top: 20px; 
+            height: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .color-detail {
+            width: 90px;
+            height: 310px;
+            margin-top: 20px;
+            margin-right: 30px;
+            margin-left: 0px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+
+
+    <div class="topbar">
+        <div><img class="logo" src="logo.png" alt=""></div>
+        <div class="sysname">Goodnight</div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart" style="display: flex;">
+            <div class="sun-containter">
+                <label>The age range you want to view data for</label>
+                <select id="ageFilter">
+                    <option value="All">All</option>
+                    <option value="20">Under 20 years old</option>
+                    <option value="30">21-30 years old</option>
+                    <option value="40">31 years old-40 years old</option>
+                    <option value="41">Over 40 years old</option>
+                </select>
+                <div class="sun-detail"></div>
+                <svg id="SunburstChart"></svg>
+            </div>
+            <div class="graph23">
+                <div class="container">
+                    <div class="scroll-container">
+                        <div class="graph3"></div>
+                    </div>
+                    <div class="checkbox-container" style="display: flex;">
+                        <div class="form-check">
+                            <input type="checkbox" id="genderCheckbox" name="gender" value="Gender">
+                            <label for="genderCheckbox">Gender</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="smokingCheckbox" name="smoking" value="Smoking_status">
+                            <label for="smokingCheckbox">Smoking Status</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="exerciseCheckbox" name="exercise" value="Exercise_frequency">
+                            <label for="exerciseCheckbox">Exercise Frequency</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="alcoholCheckbox" name="alcohol" value="Alcohol_consumption">
+                            <label for="alcoholCheckbox">Alcohol Consumption</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" id="caffeineCheckbox" name="caffeine" value="Caffeine_consumption">
+                        
+                            <label for="caffeineCheckbox">Caffeine Consumption</label>
+                        </div>
+                       
+                        <img class="color-detail" src="detail_3.jpg" alt="描述圖片">
+                        
+                    </div>
+                    
+                    
+                </div>
+
+
+                <div class="time-container">
+                    <div class="chart" id="my_dataviz"></div>
+                    <img class="detail" src="detail_2.png" alt="描述圖片">
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+</body>
+
+</html>
+
+<script>
+
+
+
+    // ==================================旭日圖==========================================
+
+    // 儲存被選取的複選框的值的陣列
+    let selectedCheckboxes = [];
+    var checkbox_order = ['Gender', 'Smoking_status', 'Exercise_frequency', 'Alcohol_consumption', 'Caffeine_consumption'];
+
+   // 指定圖表的尺寸
+    const width = 850;
+    const height = width;
+    const radius = width / 15;
+
+    // 定義全局變數
+    let filteredIDs = [];
+
+    // Create the color scale.
+    const color = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, 10)); // Adjust the number of colors as needed
+
+    // Read the CSV file and generate the sunburst chart
+    d3.csv("cleaned_dataset.csv").then(data => {
+
+
+
+        // Draw the initial sunburst chart
+        drawSunburst(data);
+
+        // Function to draw the sunburst chart
+        function drawSunburst(data) {
+            // 清除現有的 SVG 元素
+            d3.select("svg").selectAll("*").remove();
+
+            const hierarchyData = {
+                name: "",
+                children: Array.from(d3.group(data, d => d.Gender), ([key, values]) => ({
+                    name: "Gender : " + key,
+                    c_name: "Gender",
+                    key: key, // 新增 key 屬性來儲存原始的鍵值
+                    children: Array.from(d3.group(values, d => d.Smoking_status), ([key, values]) => ({
+                        name: "Smoking Status :" + key,
+                        c_name: "Smoking_status",
+                        key: key, 
+                        children: Array.from(d3.group(values, d => d.Exercise_frequency), ([key, values]) => ({
+                            name: "Exercise Frequency :" + key,
+                            c_name: "Exercise_frequency",
+                            key: key, 
+                            children: Array.from(d3.group(values, d => d.Alcohol_consumption), ([key, values]) => ({
+                                name: "Alcohol Consumption :" + key,
+                                c_name: "Alcohol_consumption",
+                                key: key, 
+                                children: Array.from(d3.group(values, d => d.Caffeine_consumption), ([key, values]) => ({
+                                    name: "Caffeine Consumption :",
+                                    c_name: "Caffeine_fonsumption",
+                                    key: key, 
+                                    value: values.length
+                                }))
+                            }))
+                        }))
+                    }))
+                }))
+
+
+            };
+            //console.log(hierarchyData)
+
+
+
+
+            // Compute the layout.
+            const hierarchy = d3.hierarchy(hierarchyData)
+                .sum(d => d.value)
+                .sort((a, b) => b.value - a.value);
+            const root = d3.partition()
+                .size([2 * Math.PI, hierarchy.height + 1])
+                (hierarchy);
+            root.each(d => d.current = d);
+
+            // Create the SVG container.
+            const svg = d3.select("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", `translate(${width / 2 - 120},${height / 2 - 100})`);
+
+            // Create the arc generator.
+            const arc = d3.arc()
+                .startAngle(d => d.x0)
+                .endAngle(d => d.x1)
+                .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
+                .padRadius(radius * 1.5)
+                .innerRadius(d => d.y0 * radius)
+                .outerRadius(d => Math.max(d.y0 * radius, d.y1 * radius - 1))
+
+
+            //更改旭日圖顏色
+            const color = d3.scaleOrdinal()
+                .domain(data.map(d => d.name))
+                .range(["#eb877c", "#7caceb"]);
+
+
+            // Append the arcs.
+            const path = svg.append("g")
+                .selectAll("path")
+                .data(root.descendants())
+                .join("path")
+                .attr("fill", d => { while (d.depth > 1) d = d.parent; return color(d.data.name); })
+                .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
+                .attr("pointer-events", d => arcVisible(d.current) ? "auto" : "none")
+                .attr("d", d => arc(d.current));
+
+            // Make them clickable if they have children.
+            path.filter(d => d.children)
+                .style("cursor", "pointer")
+                .on("click", clicked);
+
+            const format = d3.format(",d");
+
+            //變更滑鼠顯示標籤
+            path.append("title")
+                .text(d => `${d.ancestors().map(d => d.data.name).reverse().join("\n")}\n${format(d.value)}`);
+
+            //變更圖片上的標籤
+            const label = svg.append("g")
+                .attr("pointer-events", "none")
+                .attr("text-anchor", "middle")
+                .style("user-select", "none")
+                .selectAll("text")
+                .data(root.descendants())
+                .join("text")
+                .attr("dy", "0.35em")
+                .attr("fill-opacity", d => +labelVisible(d.current))
+                .attr("transform", d => labelTransform(d.current))
+                .attr("font-size", 10)
+                .text(d => d.data.key);
+
+            const parent = svg.append("circle")
+                .datum(root)
+                .attr("r", radius)
+                .attr("fill", "none")
+                .attr("pointer-events", "all")
+                .on("click", clicked);
+
+            // Handle zoom on click.
+            function clicked(event, p) {
+
+
+
+
+                // Get the ancestor keys and clicked node key
+                let ancestors = p.ancestors().reverse().slice(1); // Skip the root node
+                const keys = ancestors.map(d => d.data.key).concat(p.data.key);
+
+                console.log(ancestors)
+
+                // Filter data based on all keys dynamically
+                const filteredData = data.filter(d => {
+                    if (keys.length - 1 === 1) {
+                        return d["Gender"] == keys[0];
+                    } else if (keys.length - 1 === 2) {
+                        return d["Gender"] == keys[0] && d["Smoking_status"] == keys[1];
+                    } else if (keys.length - 1 === 3) {
+                        return d["Gender"] == keys[0] && d["Smoking_status"] == keys[1] && d["Exercise_frequency"] == keys[2];
+                    } else if (keys.length - 1 === 4) {
+                        return d["Gender"] == keys[0] && d["Smoking_status"] == keys[1] && d["Exercise_frequency"] == keys[2] && d["Alcohol_consumption"] == keys[3];
+                    }
+                    return false;
+                });
+
+                // Extract IDs from filtered data
+                filteredIDs = filteredData.map(d => d.ID); // Save filteredIDs to global variable
+
+                // Update average wakeup and bedtime lines
+                updateAverageLines(data, filteredIDs);
+
+                // 點擊事件的處理函式
+                function handleClick() {
+                    const sunDetailDiv = d3.select('.sun-detail'); // 選擇.sun-detail的div
+                    // 清除上一次的内容
+                    sunDetailDiv.selectAll('*').remove();
+
+                    // 創建一個新的<div>元素，用於存放祖先名字的容器
+                    const nameContainer = sunDetailDiv.append('div');
+
+                    // 將每个祖先的名字以斜線分隔並且並排呈现
+                    const ancestorNames = ancestors.map((ancestor, index) => `${ancestor.data.name}`).join(' / ');
+                    nameContainer.append('p')
+                        .text(ancestorNames);
+
+                    // 清除 selectedCheckboxes 數組
+                    selectedCheckboxes = [];
+
+                    // 遍布每個祖先，將其 c_name 添加到數组中（如果不存在的话）
+                    ancestors.forEach(ancestor => {
+                        if (!selectedCheckboxes.includes(ancestor.data.c_name)) {
+                            selectedCheckboxes.push(ancestor.data.c_name);
+                        }
+                    });
+                    checkboxes.forEach(checkbox => {
+                        if (selectedCheckboxes.includes(checkbox.value)) {
+                            checkbox.checked = true; // 如果 selectedCheckboxes 包含當前複選框的值，則設置為選種狀態
+                        } else {
+                            checkbox.checked = false; // 否則設置為未選中狀態
+                        }
+                    });
+
+                    // 創建一個新的數組，只包含在checkbox_order中的元素，並且保持原有顺序
+                    selectedCheckboxes = checkbox_order.filter(function(checkbox) {
+                        return selectedCheckboxes.includes(checkbox);
+                    });
+
+                    console.log(selectedCheckboxes);
+                    updateBarChart(data);
+                }
+
+
+
+
+
+
+                console.log("filteredIDs : " + filteredIDs);
+                // Update sleep chart based on filtered IDs
+                updateSleepChart();
+                handleClick();
+
+
+                parent.datum(p.parent || root);
+
+                root.each(d => d.target = {
+                    x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+                    y0: Math.max(0, d.y0 - p.depth),
+                    y1: Math.max(0, d.y1 - p.depth)
+
+
+                });
+
+                const t = svg.transition().duration(750);
+
+
+                path.transition(t)
+                    .tween("data", d => {
+                        const i = d3.interpolate(d.current, d.target);
+                        return t => d.current = i(t);
+                    })
+                    .filter(function (d) {
+                        return +this.getAttribute("fill-opacity") || arcVisible(d.target);
+                    })
+                    .attr("fill-opacity", d => arcVisible(d.target) ? (d.children ? 0.6 : 0.4) : 0)
+                    .attr("pointer-events", d => arcVisible(d.target) ? "auto" : "none")
+
+                    .attrTween("d", d => () => arc(d.current));
+
+
+                label.filter(function (d) {
+
+
+                    return +this.getAttribute("fill-opacity") || labelVisible(d.target);
+                }).transition(t)
+                    .attr("fill-opacity", d => +labelVisible(d.target))
+                    .attrTween("transform", d => () => labelTransform(d.current));
+            }
+            function arcVisible(d) {
+                return d.y1 <= 5 && d.y0 >= 1 && d.x1 > d.x0;
+            }
+
+            function labelVisible(d) {
+                return d.y1 <= 5 && d.y0 >= 1 && (d.y1 - d.y0) * (d.x1 - d.x0) > 0.03;
+            }
+
+            function labelTransform(d) {
+                const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+                const y = (d.y0 + d.y1) / 2 * radius;
+                return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+            }
+
+
+        }
+
+
+
+
+        // 監聽下拉式選單的變化
+        document.getElementById('ageFilter').addEventListener('change', function () {
+            // 取得所選擇的值
+            const selectedAge = parseInt(this.value);
+
+            // 根據所選擇的值篩選資料
+            let filteredData = data;
+            if (selectedAge !== "All") {
+                filteredData = data.filter(d => {
+                    const age = parseInt(d.Age);
+                    if (selectedAge === 20) {
+                        return age <= 20;
+                    } else if (selectedAge === 30) {
+                        return age > 20 && age <= 30;
+                    } else if (selectedAge === 40) {
+                        return age > 30 && age <= 40;
+                    } else if (selectedAge === 41) {
+                        return age > 40;
+                    } else {
+                        return true; // 選擇"All"時顯示全部資料
+                    }
+                });
+            }
+
+
+            // 重新繪製旭日圖
+            filteredIDs = []
+            updateSleepChart()
+            drawSunburst(filteredData);
+            updateBarChart(filteredData);
+        });
+
+
+
+
+
+
+        // ==================================睡眠圖==========================================
+
+
+
+
+
+        // set the dimensions and margins of the graph
+        const margin2 = { top: 40, right: 20, bottom: 50, left: 60 },
+            width2 = 900 - margin2.left - margin2.right,
+            height2 = 400 - margin2.top - margin2.bottom;
+
+        // append the svg object to the body of the page
+        const svg = d3.select("#my_dataviz")
+            .append("svg")
+            .attr("width", width2 + margin2.left + margin2.right)
+            .attr("height", height2 + margin2.top + margin2.bottom)
+            .append("g")
+            .attr("transform",
+                `translate(${margin2.left}, ${margin2.top})`);
+
+
+
+
+        // 解析日期時間字符串為 JavaScript 的 Date 對象
+        const parseDate = d3.timeParse("%Y/%-m/%-d %H:%M");
+
+
+        // 將bedtime轉換為成 21:00 開始的分鐘數
+        function convertToMinutes(date) {
+            const hour = date.getHours();
+            const minute = date.getMinutes();
+            const totalMinutes = (hour < 21 ? hour + 24 : hour) * 60 + minute - 21 * 60;
+            return totalMinutes;
+        }
+
+        // 將分鐘數轉換回時間（從 21:00 開始）
+        function convertToTime(minutes) {
+            const totalMinutes = minutes + 21 * 60;
+            const hour = Math.floor(totalMinutes / 60) % 24;
+            const minute = totalMinutes % 60;
+            return new Date(0, 0, 0, hour, minute);
+        }
+
+        // 轉換數據中的日期時間字符串為 Date 對象
+        data.forEach(function (d) {
+            d.Bedtime = parseDate(d.Bedtime);
+            d.Waketime = parseDate(d['Wakeup_time']);
+            d.Duration = (d['Sleep_duration']);
+
+        });
+
+
+        let PersonID = data.map(item => item.ID);
+
+
+
+
+
+        // 獲取一整年的起始日期和结束日期
+        const startDate = new Date("2021-01-01");
+        const endDate = new Date("2021-12-31");
+
+        // Add X axis
+        const x = d3.scaleTime()
+            .domain([startDate, endDate])
+            .range([0, width2]);
+
+        const xAxis = svg.append("g")
+            .attr("transform", `translate(0, ${height2} )`)
+            .call(d3.axisBottom(x)
+                .ticks(d3.timeMonth.every(1)) // 每月顯示一個刻度
+                .tickFormat(d3.timeFormat("%Y-%m"))); // 設置日期格式
+
+        // 旋轉刻度標籤
+        xAxis.selectAll("text")
+            .style("text-anchor", "end")
+            .attr("dx", "-0.8em")
+            .attr("dy", "0.15em")
+            .attr("transform", "rotate(-30)");
+
+        // Add Y axis
+        const y = d3.scaleTime()
+            .domain([new Date(0, 0, 0, -3, 0), new Date(0, 0, 0, 13, 0)]) // 設置时间範圍從00:00到23:59
+            .range([0, height2])
+        //console.log("high", height2);
+
+
+
+
+        svg.append("g")
+            .attr("class", "y-axis")
+            .call(d3.axisLeft(y)
+                .tickFormat(d3.timeFormat("%H:%M"))); // 使用tickFormat指定時間格式
+
+
+        // 選擇Y轴的0:00刻度標籤文字
+        svg.selectAll(".y-axis .tick text")
+            .filter(function (d) { return d.getHours() === 0 && d.getMinutes() === 0; })
+            .style("fill", "red")
+            .style("font-weight", "bold");
+
+
+        const groups = svg.selectAll("g.sleep-wake-group")
+            .data(data)
+            .join("g")
+            .attr("class", "sleep-wake-group")
+            .attr("id", d => 'group-' + d.ID) // 設定每個 group 的 ID
+            .on("mouseover", function (event, d) {
+
+                const formatTime = date => {
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                };
+
+
+                const bedtimeX = x(d.Bedtime);
+                const bedtimeY = (() => {
+                    const bedtimeHour = d.Bedtime.getHours();
+                    if (bedtimeHour >= 21 && bedtimeHour < 24) {
+                        return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes())) - 465;
+                    } else {
+                        return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes()));
+                    }
+                })();
+
+                d3.select(this).raise();
+                d3.select(this).selectAll("circle")
+                    .style("fill-opacity", 1)
+                    .attr("r", 10);
+
+                d3.select(this).selectAll("line")
+                    .style("opacity", 1)
+                    .style("stroke-width", 3);
+
+                // 顯示 Bedtime
+                d3.select(this).append("text")
+                    .attr("class", "bedtime-text")
+                    .attr("x", bedtimeX + 12)
+                    .attr("y", bedtimeY + 5)
+                    .text(formatTime(d.Bedtime));
+
+                const waketimeX = x(d.Waketime) + 12;
+                const waketimeY = y(new Date(0, 0, 0, d.Waketime.getHours(), d.Waketime.getMinutes())) + 5;
+
+                // 顯示 Waketime
+                d3.select(this).append("text")
+                    .attr("class", "waketime-text")
+                    .attr("x", waketimeX)
+                    .attr("y", waketimeY)
+                    .text(formatTime(d.Waketime));
+
+                // 計算 Sleep_duration 位置
+                const durationX = (bedtimeX + waketimeX) / 2;
+                const durationY = (bedtimeY + waketimeY) / 2;
+
+                // 顯示 Sleep_duration
+                d3.select(this).append("text")
+                    .attr("class", "duration-text")
+                    .attr("x", durationX)
+                    .attr("y", durationY)
+                    .text(d.Sleep_duration);
+            })
+
+
+
+            .on("mouseout", function () {
+                d3.select(this).selectAll("circle")
+                    .attr("r", 5)
+                    .style("fill-opacity", 0.3);
+
+                d3.select(this).selectAll("line")
+                    .style("stroke-width", 1)
+                    .style("opacity", 0.3);
+
+                // 移除文字
+                d3.select(this).selectAll("text").remove();
+            });
+
+
+
+        // 在每個 g 元素中添加睡眠時間的圓圈
+        groups.append("circle")
+            .attr("class", "sleep-circle")
+            .attr("id", d => 'circle-' + d.ID)
+            .attr("cx", d => x(d.Bedtime))
+            .attr("cy", d => {
+                const bedtimeHour = d.Bedtime.getHours();
+                if (bedtimeHour >= 21 && bedtimeHour < 24) {
+                    return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes())) - 465;
+                } else {
+                    return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes()));
+                }
+            })
+            .attr("r", 5)
+            .style("fill", "#ffb940")
+            .style("fill-opacity", 0.3)
+
+
+
+        // 在每個 g 元素中添加醒來時間的圓圈
+        groups.append("circle")
+            .attr("class", "wake-circle")
+            .attr("id", d => 'circle2-' + d.ID)
+            .attr("cx", d => x(d.Waketime))
+            .attr("cy", d => y(new Date(0, 0, 0, d.Waketime.getHours(), d.Waketime.getMinutes())))
+            .attr("r", 5)
+            .style("fill", "#4b87d6")
+            .style("fill-opacity", 0.3);
+
+
+
+        // 在每個 g 元素中添加連接線
+        groups.append("line")
+            .lower()
+            .attr("class", "connect-line")
+            .attr("id", d => 'line-' + d.ID)
+            .attr("x1", d => x(d.Bedtime))
+            .attr("y1", d => {
+                const bedtimeHour = d.Bedtime.getHours();
+                if (bedtimeHour >= 21 && bedtimeHour < 24) {
+                    return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes())) - 465;
+                } else {
+                    return y(new Date(0, 0, 0, d.Bedtime.getHours(), d.Bedtime.getMinutes()));
+                }
+            })
+            .attr("x2", d => x(d.Waketime))
+            .attr("y2", d => y(new Date(0, 0, 0, d.Waketime.getHours(), d.Waketime.getMinutes())))
+            .style("stroke", d => d['Sleep_efficiency'] < 0.85 ? "red" : "green")
+            .style("stroke-width", 1)
+            .style("opacity", 0.3);
+
+
+
+
+
+
+        //平均起床時間線
+        // 繪制連接起床時間的平均值的線
+        function averageTime(times) {
+            const totalMinutes = times.reduce((sum, time) => {
+                return sum + time.getHours() * 60 + time.getMinutes();
+            }, 0);
+            const avgMinutes = totalMinutes / times.length;
+            const avgHours = Math.floor(avgMinutes / 60);
+            const avgMins = avgMinutes % 60;
+            return new Date(0, 0, 0, avgHours, avgMins);
+        }
+
+        // Calculate average wakeup time per month
+        const nestedData = d3.groups(data, d => d3.timeMonth(d.Waketime));
+        const avgWakeupTimePerMonth = nestedData.map(([month, values]) => {
+            const avgWakeupTime = averageTime(values.map(d => d.Waketime));
+            return { month, avgWakeupTime };
+        });
+
+        // Sort the data by month
+        avgWakeupTimePerMonth.sort((a, b) => a.month - b.month);
+        // Draw average wakeup time line
+        const line = d3.line()
+            .x(d => x(d.month))
+            .y(d => y(new Date(0, 0, 0, d.avgWakeupTime.getHours(), d.avgWakeupTime.getMinutes())));
+
+        svg.append("path")
+            .datum(avgWakeupTimePerMonth)
+            .attr("fill", "none")
+            .attr("stroke", "#1a55ad")
+            .attr("stroke-width", 2)
+            .style('opacity', 0.5)
+            .attr("d", line);
+
+
+
+        //計算並繪製平均 bedtime
+        function averageTime2(times) {
+            const totalMinutes = times.reduce((sum, time) => sum + convertToMinutes(time), 0);
+            const avgMinutes = totalMinutes / times.length;
+            return convertToTime(avgMinutes);
+        }
+
+        // 計算每个月的平均 bedtime
+        const nestedData2 = d3.groups(data, d => d3.timeMonth(d.Bedtime));
+        const avgBedtimePerMonth = nestedData2.map(([month, values]) => {
+            const avgBedtime = averageTime2(values.map(d => d.Bedtime));
+            return { month, avgBedtime };
+        });
+
+        avgBedtimePerMonth.sort((a, b) => a.month - b.month);
+
+
+
+
+
+        // 繪製連接平均 bedtime 的線
+        svg.append("path")
+            .datum(avgBedtimePerMonth)
+            .attr("fill", "none")
+            .attr("stroke", "#ed7f2b")
+            .attr("stroke-width", 2)
+            .style('opacity', 0.5)
+            .attr("d", d3.line()
+                .x(d => x(d.month))
+                .y(d => {
+                    if (d.avgBedtime.getHours() >= 21 && d.avgBedtime.getHours() < 24) {
+                        return y(new Date(0, 0, 0, d.avgBedtime.getHours(), d.avgBedtime.getMinutes())) - 465;
+                    } else {
+                        return y(new Date(0, 0, 0, d.avgBedtime.getHours(), d.avgBedtime.getMinutes()));
+                    }
+                })
+            );
+
+
+
+
+        function updateAverageLines(data, filteredIDs) {
+            // Remove existing lines
+            svg.selectAll(".avg-line").remove();
+
+
+
+            // Calculate average wakeup time per month
+            const nestedData = d3.groups(data.filter(d => filteredIDs.includes(d.ID)), d => d3.timeMonth(d.Waketime));
+            const avgWakeupTimePerMonth = nestedData.map(([month, values]) => {
+                const avgWakeupTime = averageTime(values.map(d => d.Waketime));
+                return { month, avgWakeupTime };
+            });
+
+            // Sort the data by month
+            avgWakeupTimePerMonth.sort((a, b) => a.month - b.month);
+
+            // Draw average wakeup time line
+            const line = d3.line()
+                .x(d => x(d.month))
+                .y(d => y(new Date(0, 0, 0, d.avgWakeupTime.getHours(), d.avgWakeupTime.getMinutes())));
+
+            svg.append("path")
+                .datum(avgWakeupTimePerMonth)
+                .attr("class", "avg-line")
+                .attr("fill", "none")
+                .attr("stroke", "#1a55ad")
+                .attr("stroke-width", 2)
+                .attr("d", line);
+
+
+
+            // Calculate average bedtime per month
+            const nestedData2 = d3.groups(data.filter(d => filteredIDs.includes(d.ID)), d => d3.timeMonth(d.Bedtime));
+            const avgBedtimePerMonth = nestedData2.map(([month, values]) => {
+                const avgBedtime = averageTime2(values.map(d => d.Bedtime));
+                return { month, avgBedtime };
+            });
+
+            avgBedtimePerMonth.sort((a, b) => a.month - b.month);
+
+            // Draw average bedtime line
+            svg.append("path")
+                .datum(avgBedtimePerMonth)
+                .attr("class", "avg-line")
+                .attr("fill", "none")
+                .attr("stroke", "#ed7f2b")
+                .attr("stroke-width", 2)
+                .attr("d", d3.line()
+                    .x(d => x(d.month))
+                    .y(d => {
+                        if (d.avgBedtime.getHours() >= 21 && d.avgBedtime.getHours() < 24) {
+                            return y(new Date(0, 0, 0, d.avgBedtime.getHours(), d.avgBedtime.getMinutes())) - 465;
+                        } else {
+                            return y(new Date(0, 0, 0, d.avgBedtime.getHours(), d.avgBedtime.getMinutes()));
+                        }
+                    })
+                );
+        }
+
+
+
+
+        function updateSleepChart() {
+            // 更新圓圈
+            groups.selectAll('circle')
+                .transition()  // 添加過度效果
+                .duration(450) // 設置過度持續時間為750毫秒
+                .style('fill-opacity', function (d) {
+                    return filteredIDs.includes(d.ID) ? 1 : 0.3; // 根據ID來決定透明度
+                })
+                .attr('r', function (d) {
+                    return filteredIDs.includes(d.ID) ? 6 : 5; // 根據ID决定半径
+                });
+
+            // 更新線條
+            groups.selectAll('line')
+                .transition()  // 添加過度效果
+                .duration(450) // 設置過度持續時間為750毫秒
+                .style('opacity', function (d) {
+                    return filteredIDs.includes(d.ID) ? 1 : 0.3; // 根據ID來決定透明度
+                })
+                .style('stroke-width', function (d) {
+                    return filteredIDs.includes(d.ID) ? 2.5 : 1; // 根據ID决定線條宽度
+                });
+
+            // 將符合條件的元素移至最上層
+            groups.selectAll('circle, line')
+                .filter(function (d) {
+                    return filteredIDs.includes(d.ID);
+                })
+                .raise();
+        }
+
+
+
+        // ==================================柱狀圖==========================================
+
+        // const checkboxes = [
+        //                document.getElementById('genderCheckbox'),
+        //                document.getElementById('smokingCheckbox'),
+        //                document.getElementById('exerciseCheckbox'),
+        //                document.getElementById('alcoholCheckbox'),
+        //                document.getElementById('caffeineCheckbox')
+        //            ];
+
+        //            checkboxes.forEach(checkbox => checkbox.addEventListener('change', () => updateBarChart(data)));
+
+        //    console.log(checkboxes)
+
+        // 獲取所有複選框元素
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+
+
+        // 添加事件監聽器来更新 selectedCheckboxes 數組
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+
+                    // 如果複選框被選中，則將其值添加到 selectedCheckboxes 數組中
+                    if (!selectedCheckboxes.includes(checkbox.value)) {
+                        selectedCheckboxes.push(checkbox.value);
+                    }
+
+                } else {
+                    // 如果複選框被取消選中，則從 selectedCheckboxes 數组中移除
+                    const index = selectedCheckboxes.indexOf(checkbox.value);
+                    if (index !== -1) {
+                        selectedCheckboxes.splice(index, 1);
+                    }
+                }
+
+                    // 創建一个新數组，只包含在checkbox_order中的元素，并且保持原有順序
+                    selectedCheckboxes = checkbox_order.filter(function(checkbox) {
+                        return selectedCheckboxes.includes(checkbox);
+                    });
+                    //console.log(sortedCheckboxes);
+                    console.log(selectedCheckboxes)
+
+
+                // 输出當前被選中的複選框的值
+                updateBarChart(data);
+                //console.log(selectedCheckboxes);
+
+
+            });
+        });
+
+
+
+        // 設置圖表的邊距和尺寸
+        const margin3 = { top: 30, right: 30, bottom: 100, left: 60 },
+            width3 = 500 - margin3.left - margin3.right,
+            height3 = 330 - margin3.top - margin3.bottom;
+
+        const svg3 = d3.select(".graph3")
+            .append("svg")
+            .attr("width", 1800)
+            .attr("height", 400)
+            .append("g")
+            .attr("transform", `translate(${margin3.left},${margin3.top})`);
+
+
+        let filteredData = data;
+        updateBarChart(filteredData);
+
+        // 更新柱狀圖函數
+        function updateBarChart(filteredData) {
+
+            // 計算每個分組的平均值
+            const groupedData = d3.rollup(
+                filteredData,
+                v => d3.mean(v, d => d.Sleep_efficiency),
+                d => d.Gender,
+                d => d.Smoking_status,
+                d => d.Alcohol_consumption,
+                d => d.Exercise_frequency,
+                d => d.Caffeine_consumption
+            );
+
+            // 將分組資料轉換為適合繪製的陣列
+            const avgData = [];
+            groupedData.forEach((smokingMap, gender) => {
+                smokingMap.forEach((alcMap, smoking_status) => {
+                    alcMap.forEach((exerciseMap, alcoholConsumption) => {
+                        exerciseMap.forEach((caffeineMap, exerciseFrequency) => {
+                            caffeineMap.forEach((avgSleepEfficiency, caffeineConsumption) => {
+                                avgData.push({
+                                    Gender: gender,
+                                    Smoking_status: smoking_status,
+                                    Alcohol_consumption: alcoholConsumption,
+                                    Exercise_frequency: exerciseFrequency,
+                                    Caffeine_consumption: caffeineConsumption,
+                                    avgSleepEfficiency
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+
+            // 更新柱狀圖
+            updateBarChartVisualization(avgData);
+            //  console.log(avgData)
+
+        }
+
+
+
+        function updateBarChartVisualization(avgData) {
+            svg3.selectAll("*").remove();
+
+            // 假設你想根據selectedCheckboxes的長度設置不同的寬度比例
+            let dynamicWidth = width3;
+
+            if (selectedCheckboxes.length <=2) {
+                dynamicWidth = width3 * 1.5; 
+            } else if (selectedCheckboxes.length === 3) {
+                dynamicWidth = width3 * 1.9; 
+            } else if (selectedCheckboxes.length > 3) {
+                dynamicWidth = width3 * 3.5; 
+            }
+
+
+            // 如果selectedCheckboxes.length為0，顯示提示文字
+            if (selectedCheckboxes.length === 0) {
+                // 清除之前的提示文字
+                svg3.selectAll(".no-selection-text").remove();
+
+                svg3.append("text")
+                    .attr("x", 380)
+                    .attr("y", 100)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "25px")
+                    .style("font-weight", "bold")
+                    .style("fill", "black")
+                    .attr("class", "no-selection-text")
+                    .text("Click the sunburst chart or use the checkboxes on the right");
+
+                svg3.append("text")
+                    .attr("x", 380)
+                    .attr("y", 150)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "25px")
+                    .style("font-weight", "bold")
+                    .style("fill", "black")
+                    .attr("class", "no-selection-text")
+                    .text("to view the average sleep efficiency under different conditions.");
+            } else {
+                // 清除提示文字
+                svg3.selectAll(".no-selection-text").remove();
+               
+            }
+
+            // 創建 x 轴比例
+            
+            const x3 = d3.scaleBand()
+                .range([0, dynamicWidth])
+                .padding(0.2);
+
+            // 創建 y 轴比例尺
+            const y3 = d3.scaleLinear()
+                .domain([0, 1])
+                .range([height3, 0]);
+
+            // 根据條件判断是否添加Y轴和標籤
+            if (selectedCheckboxes.length !== 0) {
+                // 添加Y轴
+                svg3.append("g")
+                    .call(d3.axisLeft(y3));
+                
+                // 添加Y轴標籤
+                svg3.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", 0 - margin3.left)
+                    .attr("x", 0 - (height3 / 2))
+                    .attr("dy", "1em")
+                    .style("text-anchor", "middle")
+                    .text("Avg Sleep Efficiency");
+            }
+
+            
+
+            // 遍布每个選定的變量
+            selectedCheckboxes.forEach((variable, index) => {
+
+                // 每個變量單獨排序
+                const sortedData = avgData.slice().sort((a, b) => {
+                    // 先按照 Gender 排序
+                    if (a.Gender !== b.Gender) {
+                        return d3.ascending(a.Gender, b.Gender);
+                    }
+                    // 如果 Gender 相同，則按照 Smoking_status 排序
+                    if (a.Smoking_status !== b.Smoking_status) {
+                        return d3.ascending(a.Smoking_status, b.Smoking_status);
+                    }
+                    // 如果 Smoking_status 也相同，則按照 Alcohol_consumption 排序
+                    if (a.Alcohol_consumption !== b.Alcohol_consumption) {
+                        return d3.ascending(a.Alcohol_consumption, b.Alcohol_consumption);
+                    }
+                    // 如果 Alcohol_consumption 也相同，則按照 Exercise_frequency 排序
+                    if (a.Exercise_frequency !== b.Exercise_frequency) {
+                        return d3.ascending(a.Exercise_frequency, b.Exercise_frequency);
+                    }
+                    // 如果 Exercise_frequency 也相同，則按照 Caffeine_consumption 排序
+                    if (a.Caffeine_consumption !== b.Caffeine_consumption) {
+                        return d3.ascending(a.Caffeine_consumption, b.Caffeine_consumption);
+                    }
+                    // 如果所有属性都相同，則按照 avgSleepEfficiency 排序
+                    return d3.ascending(a.avgSleepEfficiency, b.avgSleepEfficiency);
+                });
+
+                // 計算 x 軸的長度
+                const xAxisSize = Math.min(sortedData.length * 50, width3); // 每個條形的最小寬度設為50像素
+
+
+
+                // 设置 x 軸域（domain）
+                x3.domain(sortedData.map(d => {
+                    let label = "";
+                    selectedCheckboxes.forEach((variable, index) => {
+                        label += d[variable];
+                        if (index !== selectedCheckboxes.length - 1) {
+                            label += "-"; // 在每個数值之间添加“-”
+                        }
+                    });
+                    return label;
+                }));
+
+                // 創建一個容器來存放X軸
+                let xAxisContainer = svg3.selectAll(".x-axis-container").data([null]);
+
+                // 如果容器不存在，創建它
+                xAxisContainer = xAxisContainer.enter()
+                    .append("g")
+                    .attr("class", "x-axis-container")
+                    .merge(xAxisContainer)
+                    .attr("transform", `translate(0, ${height3})`)
+                    .call(d3.axisBottom(x3))
+                    .selectAll("text")
+                    .attr("transform", "rotate(-60)")
+                    .style("text-anchor", "end")
+                    .attr("x", -10) // 將文字向左移動10個像素，貼齊尾部
+                    .attr("y", 5) // 不需要上下調整
+                    .attr("dy", ".35em");
+
+                const hasGender = selectedCheckboxes.includes("Gender");
+
+
+
+
+
+
+                // 繪製柱状图
+                svg3.selectAll("rect")
+                    .data(sortedData)
+                    .join("rect")
+                    .attr("x", d => {
+                        let label = "";
+                        selectedCheckboxes.forEach((variable, index) => {
+                            label += d[variable];
+                            if (index !== selectedCheckboxes.length - 1) {
+                                label += "-"; // 在每個數值之间添加“-”
+                            }
+                        });
+                        return x3(label);
+                    })
+                    .attr("y", d => y3(d.avgSleepEfficiency))
+                    .attr("width", x3.bandwidth())
+                    .attr("height", d => height3 - y3(d.avgSleepEfficiency))
+                    .attr("fill", d => {
+                        if (hasGender) {
+                            return d.Gender === "Female" ? "#eb877c" : "#7caceb";
+                        } else {
+                            return "#ba8ed1";
+                        }
+                     })
+
+
+
+            });
+        }
+
+
+
+
+
+
+
+
+
+
+
+    });
+</script>
+</body>
+
+</html>
